@@ -1,10 +1,12 @@
 from django.shortcuts import render
-from django.contrib.auth.forms import UserCreationForm,AuthenticationForm,PasswordChangeForm
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login,authenticate,logout
 from django.shortcuts import HttpResponseRedirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from .forms import SighUpForm
+from datetime import date
+from .models import usersSub,subPlan
 
 
 # Create your views here.
@@ -40,4 +42,26 @@ def logout_user(request):
     return HttpResponseRedirect(reverse('home'))
 
 def home(request):
-    return render(request,'home.html',context={})
+    userSub=[]
+    if request.user.is_authenticated():
+        userSub = usersSub.objects.filter(user=request.user)
+    subsPlan = subPlan.objects.all()
+    subscribed=False
+    can_pur_new_sub=True
+    if userSub.exists():
+        #This variable is for tracking monthly subscription
+        subscribed=True
+        D_now=date.today()
+        compareM = D_now-date(userSub[0].subscribeY,userSub[0].subscribeM,userSub[0].subscribeD)
+        if compareM.days == 30:
+            subscribed = False
+
+        #This variable is for tracking if a user can purchase a new subscription or not
+        can_pur_new_sub=False
+        if userSub.subP.title=="Globalnet Gold":
+            can_pur_new_sub=True
+        else:
+            compareY= D_now-date(userSub[0].subscribeY,userSub[0].subscribeM,userSub[0].subscribeD)
+            if compareY.days == 365:
+                can_pur_new_sub = True
+    return render(request,'home.html',context={'userSub':userSub,'subPlan':subsPlan,'subscribed':subscribed,'can_pur_new_sub':can_pur_new_sub})

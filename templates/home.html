@@ -1,2 +1,22 @@
 {% extends 'base.html' %}
-<h1>This is home page</h1>
+{% block body_block %}
+<div class="container my-5">
+    <h2 class="my-5">Subscription Option</h2>
+    <div class="row">
+        {% for subP in subPlan %}
+        <div class="col-md-6 col-sm-12 col-lg-3">
+            <figure class="card card-product">
+                <figcaption class="info-wrap">
+                    <h6 class="title"><a href="{% url 'subDetail' id=subP.pk %}">{{subP.title}}</a></h6>
+                    <div class="action-wrap">
+                        <div class="price-wrap h5"> 
+                            <span class="price-new">&#2547; {{subP.price}}</span>
+                    </div>
+                </figcaption>
+            </figure>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

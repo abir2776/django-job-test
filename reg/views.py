@@ -1,12 +1,17 @@
-from django.shortcuts import render
+from django.shortcuts import render,redirect
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login,authenticate,logout
 from django.shortcuts import HttpResponseRedirect
 from django.urls import reverse
+from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from .forms import SighUpForm
 from datetime import date
 from .models import usersSub,subPlan
+import requests
+from sslcommerz_python.payment import SSLCSession
+from decimal import Decimal
+import socket
 
 
 # Create your views here.
@@ -42,9 +47,7 @@ def logout_user(request):
     return HttpResponseRedirect(reverse('home'))
 
 def home(request):
-    userSub=[]
-    if request.user.is_authenticated():
-        userSub = usersSub.objects.filter(user=request.user)
+    userSub = usersSub.objects.filter(user=request.user)
     subsPlan = subPlan.objects.all()
     subscribed=False
     can_pur_new_sub=True
@@ -64,4 +67,40 @@ def home(request):
             compareY= D_now-date(userSub[0].subscribeY,userSub[0].subscribeM,userSub[0].subscribeD)
             if compareY.days == 365:
                 can_pur_new_sub = True
-    return render(request,'home.html',context={'userSub':userSub,'subPlan':subsPlan,'subscribed':subscribed,'can_pur_new_sub':can_pur_new_sub})
+        return render(request,'home.html',context={'userSub':userSub[0],'subPlan':subsPlan,'subscribed':subscribed,'can_pur_new_sub':can_pur_new_sub})
+    else:
+        return render(request,'home.html',context={'userSub':False,'subPlan':subsPlan,'subscribed':subscribed,'can_pur_new_sub':can_pur_new_sub})
+
+
+@login_required
+def subDetail(request,id):
+    subsPlan=subPlan.objects.filter(pk=id)
+    return render(request,'subsDetails.html',context={"subPlan":subsPlan[0]})
+
+
+
+@login_required
+def payment(request,id):
+    store_id='abc62f3a45eec4c4'
+    API_key = 'abc62f3a45eec4c4@ssl'
+    mypayment = SSLCSession(sslc_is_sandbox=True,sslc_store_id=store_id,sslc_store_pass=API_key)
+
+    status_url = request.build_absolute_uri(reverse("complete"))
+    mypayment.set_urls(success_url=status_url,fail_url=status_url,cancel_url=status_url,ipn_url=status_url)
+
+
+    subP=subPlan.objects.filter(pk=id)
+
+    mypayment.set_product_integration(total_amount=Decimal(subP[0].price),currency='BDT',product_category='Mixed',product_name=subP[0].title,num_of_item=1,shipping_method='online',product_profile='None')
+
+    current_user = request.user
+    mypayment.set_customer_info(name=request.user.username,email=request.user.email,address1="Feni",address2="Dhaka",city="Feni",postcode="3900",country="Bangladesh",phone="Phone")
+    
+
+    mypayment.set_shipping_info(shipping_to=request.user.username,address="address",city="city",postcode="postcode",country="Bangladesh")
+    response_data = mypayment.init_payment()
+    return redirect(response_data['GatewayPageURL'])
+
+@login_required
+def complete(request):
+    return HttpResponse("THis is complete page")

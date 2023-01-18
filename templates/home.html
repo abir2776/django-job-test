@@ -7,7 +7,11 @@
         <div class="col-md-6 col-sm-12 col-lg-3">
             <figure class="card card-product">
                 <figcaption class="info-wrap">
+                    {% if subscribed == False or can_pur_new_sub == True %}
                     <h6 class="title"><a href="{% url 'subDetail' id=subP.pk %}">{{subP.title}}</a></h6>
+                    {% else %}
+                    <h6 class="title">{{subP.title}}</h6>
+                    {% endif %}
                     <div class="action-wrap">
                         <div class="price-wrap h5"> 
                             <span class="price-new">&#2547; {{subP.price}}</span>

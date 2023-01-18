@@ -1,18 +1,19 @@
 from django.shortcuts import render,redirect
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login,authenticate,logout
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import HttpResponseRedirect
 from django.urls import reverse
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from .forms import SighUpForm
+from datetime import datetime
 from datetime import date
 from .models import usersSub,subPlan
-import requests
 from sslcommerz_python.payment import SSLCSession
 from decimal import Decimal
-import socket
-
+from django.contrib import messages
+from django.contrib.auth.models import User
 
 # Create your views here.
 def sign_up(request):
@@ -46,6 +47,7 @@ def logout_user(request):
     logout(request)
     return HttpResponseRedirect(reverse('home'))
 
+@login_required
 def home(request):
     userSub = usersSub.objects.filter(user=request.user)
     subsPlan = subPlan.objects.all()
@@ -57,16 +59,19 @@ def home(request):
         D_now=date.today()
         compareM = D_now-date(userSub[0].subscribeY,userSub[0].subscribeM,userSub[0].subscribeD)
         if compareM.days == 30:
-            subscribed = False
+            subscribed = True
+
+        #----------------
 
         #This variable is for tracking if a user can purchase a new subscription or not
         can_pur_new_sub=False
-        if userSub.subP.title=="Globalnet Gold":
+        if userSub[0].subP.title=="Globalnet Gold":
             can_pur_new_sub=True
         else:
             compareY= D_now-date(userSub[0].subscribeY,userSub[0].subscribeM,userSub[0].subscribeD)
             if compareY.days == 365:
                 can_pur_new_sub = True
+        #---------------------------
         return render(request,'home.html',context={'userSub':userSub[0],'subPlan':subsPlan,'subscribed':subscribed,'can_pur_new_sub':can_pur_new_sub})
     else:
         return render(request,'home.html',context={'userSub':False,'subPlan':subsPlan,'subscribed':subscribed,'can_pur_new_sub':can_pur_new_sub})
@@ -85,15 +90,25 @@ def payment(request,id):
     API_key = 'abc62f3a45eec4c4@ssl'
     mypayment = SSLCSession(sslc_is_sandbox=True,sslc_store_id=store_id,sslc_store_pass=API_key)
 
-    status_url = request.build_absolute_uri(reverse("complete"))
+    status_url = request.build_absolute_uri(reverse("complete",kwargs={'id':id}))
     mypayment.set_urls(success_url=status_url,fail_url=status_url,cancel_url=status_url,ipn_url=status_url)
 
 
     subP=subPlan.objects.filter(pk=id)
+    sPlan = subPlan.objects.filter(pk=id)
+
+    #deleting old subscription
+    uOldsub=usersSub.objects.filter(user=request.user)
+    uOldsub.delete()
+    #--------------
+
+    #creating new subscription
+    usubPlan = usersSub.objects.create(user=request.user,subP=sPlan[0],subscribeY=datetime.now().year,subscribeM=datetime.now().month,subscribeD=datetime.now().day)
+    usubPlan.save()
+    #---------------
 
     mypayment.set_product_integration(total_amount=Decimal(subP[0].price),currency='BDT',product_category='Mixed',product_name=subP[0].title,num_of_item=1,shipping_method='online',product_profile='None')
 
-    current_user = request.user
     mypayment.set_customer_info(name=request.user.username,email=request.user.email,address1="Feni",address2="Dhaka",city="Feni",postcode="3900",country="Bangladesh",phone="Phone")
     
 
@@ -101,6 +116,19 @@ def payment(request,id):
     response_data = mypayment.init_payment()
     return redirect(response_data['GatewayPageURL'])
 
-@login_required
-def complete(request):
-    return HttpResponse("THis is complete page")
+
+#Payment complete
+@csrf_exempt
+def complete(request,id):
+    if request.method == 'POST' or request.method == 'post':
+        payment_data = request.POST
+        status = payment_data['status']
+
+        if status == 'VALID':
+            messages.success(request,f"Your Payment Completed Successfully!! Page will be redirected!!")
+            return HttpResponseRedirect(reverse("home"))
+        elif status == 'FAILED':
+            messages.warning(request,f"Your Payment Failed! Please Try Again!! Page will be redirected!!")
+    
+    
+    return render(request,'complete.html',context={})

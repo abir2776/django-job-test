@@ -59,7 +59,7 @@ def home(request):
         D_now=date.today()
         compareM = D_now-date(userSub[0].subscribeY,userSub[0].subscribeM,userSub[0].subscribeD)
         if compareM.days == 30:
-            subscribed = True
+            subscribed = False
 
         #----------------
 

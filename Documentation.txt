@@ -1,0 +1,7 @@
+->first create account
+->login with username and passward
+->click on the subscription option which want to buy
+->click the buy now option
+->complete the payment
+->user now can't click on the option. they can click when their subscription time passed one month
+or they purched Globalnet Gold.
